@@ -13,22 +13,26 @@
 // limitations under the License.
 
 
-// The defination is from "The RISC-V Instruction Set Manual Volume",
-// Chapter 9: RV32/64G Instruction Set Listings
-// see https://riscv.org/wp-content/uploads/2017/05/riscv-spec-v2.2.pdf
-// for details
-
-
 `include "macro.v"
 
-module nano_riscv (
-    input i_clk,
-    input i_rst,
-    input [31:0] i_inst,
+module nano_riscv(
+    input wire i_clk,
+    input wire i_rst,
+    input wire [31:0] i_inst,
+    output reg [31:0] o_pc,
+    output [31:0] debug
 );
+    // 32 * 32 bits regs
+    reg [31:0] regs [31:0];
 
-    reg [31:0] pc;
-    reg [31:0] regs [31:0];  // 32 * 32 bits regs
+    // Instruction Fetch
+    always @(posedge i_clk) begin
+        regs[0] <= 32'b0;  // x0 is always 0
+        if (i_rst)
+            o_pc <= 32'b0;
+        else
+            o_pc <= o_pc + 32'h1;
+    end
 
     wire [6:0] opcode = i_inst[6:0];
     wire [4:0] rd = i_inst[11:7];
@@ -36,21 +40,28 @@ module nano_riscv (
     wire [4:0] rs1 = i_inst[19:15];
     wire [4:0] rs2 = i_inst[24:20];
     wire [6:0] funct7 = i_inst[31:25];
+    wire [31:0] imm_i = {{21{i_inst[31]}}, i_inst[30:20]};  // i type immediate
+
+    wire [31:0] n1 = regs[rs1];
+    wire [31:0] n2 = opcode == `INST_TYPE_I_C ? imm_i : regs[rs2];
+    wire signed [31:0] sn1 = n1;
+    wire signed [31:0] sn2 = n2;
+    wire [31:0] nd;
+
+    // R & I type
+    assign nd = funct3 == `INST_ADD_SUB ? (funct7[5] == 1'b0 ? n1 + n2 : n1 - n2) :
+                funct3 == `INST_SLL ? n1 << n2[4:0] :
+                funct3 == `INST_SLT ? sn1 < sn2 :
+                funct3 == `INST_SLTU ? n1 < n2 :
+                funct3 == `INST_XOR ? n1 | n2 :
+                funct3 == `INST_SRL_SRA ? (funct7[5] == 1'b0 ? n1 >> n2[4:0]: n1 >>> n2[4:0]):
+                funct3 == `INST_OR ? n1 | n2 :
+                n1 & n2;
 
     always @(*) begin
-        case (opcode):
-            `INST_TYPE_R:
-            `INST_TYPE_I_C:
-            `INST_TYPE_I_L:
-            `INST_TYPE_I_J:
-            `INST_TYPE_I_CSR:
-            `INST_TYPE_S:
-            `INST_TYPE_SB:
-            `INST_TYPE_U_LUI:
-            `INST_TYPE_U_AUIPC:
-            `INST_TYPE_UJ_JAL:
-            default:
-        endcase
+        regs[rd] = nd;
     end
+
+    assign debug = nd;
 
 endmodule

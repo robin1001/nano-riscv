@@ -42,13 +42,13 @@
 
 // I type instruction, compute
 `define INST_ADDI   3'b000
+`define INST_SLLI   3'b001
 `define INST_SLTI   3'b010
 `define INST_SLTIU  3'b011
 `define INST_XORI   3'b100
+`define INST_SRI    3'b101
 `define INST_ORI    3'b110
 `define INST_ANDI   3'b111
-`define INST_SLLI   3'b001
-`define INST_SRI    3'b101
 
 // I type instruction, load
 `define INST_LB     3'b000
