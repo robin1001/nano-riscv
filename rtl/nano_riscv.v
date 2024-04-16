@@ -45,6 +45,11 @@ module nano_riscv(
     wire [31:0] nd;
 
     wire [31:0] imm_sb = {{20{i_inst[31]}}, i_inst[7], i_inst[30:25], i_inst[11:8], 1'b0}; // SB type
+    wire [31:0] imm_lui = {i_inst[31:12], 12'b0}; // LUI
+
+    wire r_x = opcode == `INST_TYPE_R ||
+               opcode == `INST_TYPE_I_C; // R
+    wire lui_x = opcode == `INST_TYPE_U_LUI; // LUI
 
     // Step 3. Ex, Execute
     // R & I compute instruction
@@ -65,7 +70,6 @@ module nano_riscv(
 
     // Step 4. MEM, Data Memory Access
 
-    assign debug = bx;
 
     // Step 5. WB, Write Back
     always @(posedge i_clk) begin
@@ -76,9 +80,12 @@ module nano_riscv(
             o_pc <= 32'b0;
         end else begin
             o_pc <= bx ? o_pc + imm_sb : o_pc + 32'h1;
+            reg_file[rd] <= r_x   ? nd :
+                            lui_x ? imm_lui :
+                            32'b0;
         end
-        reg_file[rd] <= nd;
     end
 
+    assign debug = reg_file[rd];
 
 endmodule
