@@ -107,10 +107,8 @@ module nano_riscv(
             o_pc <= 32'b0;
         end else begin
             o_pc <= next_pc;
-            if (rd == 0)  // note x0 is always 0
-                reg_file[0] <= 32'b0;
-            else
-                reg_file[rd] <= dest_v;
+            // note x0 is always 0
+            reg_file[rd] <= rd == 0 ? 32'b0 : dest_v;
         end
     end
 
