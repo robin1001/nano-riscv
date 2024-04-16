@@ -26,18 +26,10 @@ module nano_riscv(
     reg [31:0] reg_file [31:0];
     integer i;
 
-    // Instruction Fetch
-    always @(posedge i_clk) begin
-        if (i_rst) begin
-            // note x0 is always 0
-            for (i = 0; i < 32; i = i + 1)
-                reg_file[i] <= 32'b0;
-            o_pc <= 32'b0;
-        end else begin
-            o_pc <= o_pc + 32'h1;
-        end
-    end
+    // Step 1. IF, Instruction Fetch
+    // See outside, i_inst = mem[o_pc];
 
+    // Step 2. ID, Instruction Decode
     wire [6:0] opcode = i_inst[6:0];
     wire [4:0] rd = i_inst[11:7];
     wire [2:0] funct3 = i_inst[14:12];
@@ -52,7 +44,10 @@ module nano_riscv(
     wire signed [31:0] sn2 = n2;
     wire [31:0] nd;
 
-    // R & I type
+    wire [31:0] imm_sb = {{20{i_inst[31]}}, i_inst[7], i_inst[30:25], i_inst[11:8], 1'b0}; // SB type
+
+    // Step 3. Ex, Execute
+    // R & I compute instruction
     assign nd = funct3 == `INST_ADD_SUB ? (funct7[5] == 1'b0 ? n1 + n2 : n1 - n2) :
                 funct3 == `INST_SLL ? n1 << n2[4:0] :
                 funct3 == `INST_SLT ? sn1 < sn2 :
@@ -61,11 +56,29 @@ module nano_riscv(
                 funct3 == `INST_SRL_SRA ? (funct7[5] == 1'b0 ? n1 >> n2[4:0]: n1 >>> n2[4:0]):
                 funct3 == `INST_OR ? n1 | n2 :
                 n1 & n2;
+    wire bx = funct3 == `INST_BEQ && n1 == n2 ||
+              funct3 == `INST_BNE && n1 != n2 ||
+              funct3 == `INST_BLT && n1 < n2 ||
+              funct3 == `INST_BGE && n1 >= n2 ||
+              funct3 == `INST_BLTU && sn1 < sn2 ||
+              funct3 == `INST_BGEU && sn1 >= sn2;
 
-    always @(*) begin
-        reg_file[rd] = nd;
+    // Step 4. MEM, Data Memory Access
+
+    assign debug = bx;
+
+    // Step 5. WB, Write Back
+    always @(posedge i_clk) begin
+        if (i_rst) begin
+            // note x0 is always 0
+            for (i = 0; i < 32; i = i + 1)
+                reg_file[i] <= 32'b0;
+            o_pc <= 32'b0;
+        end else begin
+            o_pc <= bx ? o_pc + imm_sb : o_pc + 32'h1;
+        end
+        reg_file[rd] <= nd;
     end
 
-    assign debug = nd;
 
 endmodule

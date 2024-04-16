@@ -31,23 +31,25 @@ module nano_riscv_tb();
     );
 
     always @(posedge clk) begin
-       inst = mem[pc];
+       if (rst)
+           inst = 32'b0;
+       else
+           inst = mem[pc];
     end
 
     initial begin
        $readmemb("code.ram", mem);
     end
 
+    integer i;
     initial begin
         rst = 1;
         #2;
         rst = 0;
-        #2;
-        $display("%h %b %b", pc, inst, debug);
-        #2;
-        $display("%h %b %b", pc, inst, debug);
-        #2;
-        $display("%h %b %b", pc, inst, debug);
+        for (i = 0; i < 5; i = i + 1) begin
+            #2;
+            $display("%h %b %b", pc, inst, debug);
+        end
         $finish;
     end
 
