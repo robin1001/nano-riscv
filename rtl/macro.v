@@ -22,7 +22,7 @@
 `define INST_TYPE_R        7'b0110011
 `define INST_TYPE_I_C      7'b0010011  // I type, compute operation, +/- etc.
 `define INST_TYPE_I_L      7'b0000011  // I type, Load releated
-`define INST_TYPE_I_J      7'b1100111  // I type, JALR
+`define INST_TYPE_I_JALR   7'b1100111  // I type, JALR
 `define INST_TYPE_I_CSR    7'b1110011
 `define INST_TYPE_S        7'b1000011
 `define INST_TYPE_SB       7'b1100111
