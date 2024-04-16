@@ -23,15 +23,19 @@ module nano_riscv(
     output [31:0] debug
 );
     // 32 * 32 bits regs
-    reg [31:0] regs [31:0];
+    reg [31:0] reg_file [31:0];
+    integer i;
 
     // Instruction Fetch
     always @(posedge i_clk) begin
-        regs[0] <= 32'b0;  // x0 is always 0
-        if (i_rst)
+        if (i_rst) begin
+            // note x0 is always 0
+            for (i = 0; i < 32; i = i + 1)
+                reg_file[i] <= 32'b0;
             o_pc <= 32'b0;
-        else
+        end else begin
             o_pc <= o_pc + 32'h1;
+        end
     end
 
     wire [6:0] opcode = i_inst[6:0];
@@ -42,8 +46,8 @@ module nano_riscv(
     wire [6:0] funct7 = i_inst[31:25];
     wire [31:0] imm_i = {{21{i_inst[31]}}, i_inst[30:20]};  // i type immediate
 
-    wire [31:0] n1 = regs[rs1];
-    wire [31:0] n2 = opcode == `INST_TYPE_I_C ? imm_i : regs[rs2];
+    wire [31:0] n1 = reg_file[rs1];
+    wire [31:0] n2 = opcode == `INST_TYPE_I_C ? imm_i : reg_file[rs2];
     wire signed [31:0] sn1 = n1;
     wire signed [31:0] sn2 = n2;
     wire [31:0] nd;
@@ -59,7 +63,7 @@ module nano_riscv(
                 n1 & n2;
 
     always @(*) begin
-        regs[rd] = nd;
+        reg_file[rd] = nd;
     end
 
     assign debug = nd;

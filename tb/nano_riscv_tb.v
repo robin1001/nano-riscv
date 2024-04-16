@@ -48,10 +48,6 @@ module nano_riscv_tb();
         $display("%h %b %b", pc, inst, debug);
         #2;
         $display("%h %b %b", pc, inst, debug);
-        #2;
-        $display("%h %b %b", pc, inst, debug);
-        #2;
-        $display("%h %b %b", pc, inst, debug);
         $finish;
     end
 
