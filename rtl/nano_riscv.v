@@ -18,34 +18,49 @@
 module nano_riscv(
     input wire i_clk,
     input wire i_rst,
-    input wire [31:0] i_inst,
-    output reg [31:0] o_pc,
+    output wire [31:0] o_inst,
+    output wire [31:0] o_pc,
     output [31:0] debug
 );
     // 32 * 32 bits regs
     reg [31:0] reg_file [31:0];
     integer i;
 
-    // Step 1. IF, Instruction Fetch
-    // See outside, i_inst = mem[o_pc];
+    // Memory, please note register is used as memory to
+    // simplify the design
+    reg [31:0] mem_file [1024:0];
+    initial begin
+        $readmemb("code.ram", mem_file);
+    end
 
-    // Step 2. ID, Instruction Decode
+    // Stage 1. IF, Instruction Fetch
+    reg [31:0] inst;
+    reg [31:0] pc;
+    always @(posedge i_clk) begin
+       if (i_rst)
+           inst <= 32'b0;
+       else
+           inst <= mem_file[pc];
+    end
+    assign o_inst = inst;
 
+    // Stage 2. ID, Instruction Decode
     wire x_r       =   opcode ==   `INST_TYPE_R ||
                        opcode ==   `INST_TYPE_I_C;
     wire x_lui     =   opcode ==   `INST_TYPE_U_LUI;
     wire x_auipc   =   opcode ==   `INST_TYPE_U_AUIPC;
     wire x_jal     =   opcode ==   `INST_TYPE_UJ_JAL;
     wire x_jalr    =   opcode ==   `INST_TYPE_I_JALR;
+    wire x_load    =   opcode ==   `INST_TYPE_I_L;
 
-    wire [6:0] opcode = i_inst[6:0];
-    wire [4:0] rd = (x_r || x_lui || x_auipc || x_jal || x_jalr) ?
-                    i_inst[11:7] : 5'b0;
-    wire [2:0] funct3 = i_inst[14:12];
-    wire [4:0] rs1 = i_inst[19:15];
-    wire [4:0] rs2 = i_inst[24:20];
-    wire [6:0] funct7 = i_inst[31:25];
-    wire [31:0] imm_i = {{21{i_inst[31]}}, i_inst[30:20]};  // i type immediate
+    wire [6:0] opcode = inst[6:0];
+    wire [4:0] rd = (x_r || x_lui || x_auipc || x_jal || x_jalr || x_load) ?
+                    inst[11:7] : 5'b0;
+    wire [2:0] funct3 = inst[14:12];
+    wire [4:0] rs1 = inst[19:15];
+    wire [4:0] rs2 = inst[24:20];
+    wire [6:0] funct7 = inst[31:25];
+    wire [31:0] imm_i = {{21{inst[31]}}, inst[30:20]};  // i type immediate
 
     wire [31:0] n1 = reg_file[rs1];
     wire [31:0] n2 = opcode == `INST_TYPE_I_C ? imm_i : reg_file[rs2];
@@ -53,14 +68,14 @@ module nano_riscv(
     wire signed [31:0] sn2 = n2;
     wire [31:0] nd;
 
-    wire [31:0] imm_sb = {{20{i_inst[31]}}, i_inst[7], i_inst[30:25],
-                          i_inst[11:8], 1'b0}; // SB type
-    wire [31:0] imm_lu20 = {i_inst[31:12], 12'b0}; // LUI
-    wire [31:0] imm_jal = {{12{i_inst[31]}}, i_inst[19:12], i_inst[20],
-                            i_inst[30:21]};
+    wire [31:0] imm_sb = {{20{inst[31]}}, inst[7], inst[30:25],
+                          inst[11:8], 1'b0}; // SB type
+    wire [31:0] imm_lu20 = {inst[31:12], 12'b0}; // LUI
+    wire [31:0] imm_jal = {{12{inst[31]}}, inst[19:12], inst[20],
+                            inst[30:21]};
 
 
-    // Step 3. Ex, Execute
+    // Stage 3. Ex, Execute
     // R & I compute instruction
     assign nd = funct3 == `INST_ADD_SUB ?
                     (funct7[5] == 1'b0 ? n1 + n2 : n1 - n2) :
@@ -80,38 +95,40 @@ module nano_riscv(
                 funct3 == `INST_BLTU && sn1 < sn2 ||
                 funct3 == `INST_BGEU && sn1 >= sn2);
 
-    wire [31:0] pc_b = o_pc + imm_sb;
-    wire [31:0] pc_aui = o_pc + imm_lu20;
-    wire [31:0] pc_jal = o_pc + imm_jal;
-    wire [31:0] pc_jalr = o_pc + imm_i;
+    wire [31:0] pc_b = pc + imm_sb;
+    wire [31:0] pc_aui = pc + imm_lu20;
+    wire [31:0] pc_jal = pc + imm_jal;
+    wire [31:0] pc_jalr = pc + imm_i;
 
-    // Step 4. MEM, Data Memory Access
+    // Stage 4. MEM, Data Memory Access
+    wire [31:0] addr = reg_file[rs1] + imm_i;
 
 
-    // Step 5. WB, Write Back
+    // Stage 5. WB, Write Back
     wire [31:0] next_pc = x_b       ?   pc_b      :
                           x_auipc   ?   pc_aui    :
                           x_jal     ?   pc_jal    :
                           x_jalr    ?   pc_jalr   :
-                          o_pc + 32'h1;
+                          pc + 32'h1;
     wire [31:0] dest_v = x_r       ?   nd         :
                          x_lui     ?   imm_lu20   :
                          x_auipc   ?   pc_aui     :
-                         x_jal     ?   o_pc + 4   :
-                         x_jalr    ?   o_pc + 4   :
+                         x_jal     ?   pc + 4   :
+                         x_jalr    ?   pc + 4   :
                          32'b0;
     always @(posedge i_clk) begin
         if (i_rst) begin
             for (i = 0; i < 32; i = i + 1)
                 reg_file[i] <= 32'b0;
-            o_pc <= 32'b0;
+            pc <= 32'b0;
         end else begin
-            o_pc <= next_pc;
+            pc <= next_pc;
             // note x0 is always 0
             reg_file[rd] <= rd == 0 ? 32'b0 : dest_v;
         end
     end
 
+    assign o_pc = pc;
     assign debug = dest_v;
 
 endmodule

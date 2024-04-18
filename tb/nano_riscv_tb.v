@@ -16,8 +16,7 @@ module nano_riscv_tb();
     reg rst;
     wire clk;
     wire [31:0] pc;
-    reg [31:0] mem [1023:0]; // 1k*4
-    reg [31:0] inst;
+    wire [31:0] inst;
     wire [31:0] debug;
 
     clock_gen #(.PERIOD(2)) clk_g(.o_clk(clk));
@@ -25,21 +24,10 @@ module nano_riscv_tb();
     nano_riscv nano(
        .i_clk(clk),
        .i_rst(rst),
-       .i_inst(inst),
+       .o_inst(inst),
        .o_pc(pc),
        .debug(debug)
     );
-
-    always @(posedge clk) begin
-       if (rst)
-           inst = 32'b0;
-       else
-           inst = mem[pc];
-    end
-
-    initial begin
-       $readmemb("code.ram", mem);
-    end
 
     integer i;
     initial begin
