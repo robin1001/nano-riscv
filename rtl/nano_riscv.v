@@ -28,21 +28,21 @@ module nano_riscv(
 
     // Memory, please note register is used as memory to
     // simplify the design
-    reg [31:0] mem_file [1024:0];
-    initial begin
-        $readmemb("code.ram", mem_file);
-    end
+    reg [31:0] mem_file [1023:0];
+
 
     // Stage 1. IF, Instruction Fetch
     reg [31:0] inst;
     reg [31:0] pc;
+    wire [31:0] pc_addr = {2'h0, pc[31:2]};  // pc_addr = pc / 4
     always @(posedge i_clk) begin
        if (i_rst)
            inst <= 32'b0;
        else
-           inst <= mem_file[pc];
+           inst <= mem_file[pc_addr];
     end
     assign o_inst = inst;
+
 
     // Stage 2. ID, Instruction Decode
     wire x_r       =   opcode ==   `INST_TYPE_R ||
@@ -74,7 +74,6 @@ module nano_riscv(
     wire [31:0] imm_jal = {{12{inst[31]}}, inst[19:12], inst[20],
                             inst[30:21]};
 
-
     // Stage 3. Ex, Execute
     // R & I compute instruction
     assign nd = funct3 == `INST_ADD_SUB ?
@@ -100,6 +99,7 @@ module nano_riscv(
     wire [31:0] pc_jal = pc + imm_jal;
     wire [31:0] pc_jalr = pc + imm_i;
 
+
     // Stage 4. MEM, Data Memory Access
     wire [31:0] addr = reg_file[rs1] + imm_i;
 
@@ -109,7 +109,7 @@ module nano_riscv(
                           x_auipc   ?   pc_aui    :
                           x_jal     ?   pc_jal    :
                           x_jalr    ?   pc_jalr   :
-                          pc + 32'h1;
+                          pc + 32'h4;
     wire [31:0] dest_v = x_r       ?   nd         :
                          x_lui     ?   imm_lu20   :
                          x_auipc   ?   pc_aui     :

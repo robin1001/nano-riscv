@@ -29,6 +29,10 @@ module nano_riscv_tb();
        .debug(debug)
     );
 
+    initial begin
+        $readmemb("code.ram", nano.mem_file);
+    end
+
     integer i;
     initial begin
         rst = 1;
