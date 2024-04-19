@@ -53,6 +53,7 @@ module nano_riscv(
     wire x_jalr    =   opcode ==   `INST_TYPE_I_JALR;
     wire x_load    =   opcode ==   `INST_TYPE_I_L;
     wire x_store   =   opcode ==   `INST_TYPE_S;
+    wire x_csr     =   opcode ==   `INST_TYPE_S;
 
     wire [6:0] opcode = inst[6:0];
     wire [4:0] rd = (x_r || x_lui || x_auipc || x_jal || x_jalr || x_load) ?

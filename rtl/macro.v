@@ -29,6 +29,7 @@
 `define INST_TYPE_U_LUI    7'b0110111
 `define INST_TYPE_U_AUIPC  7'b0010111
 `define INST_TYPE_UJ_JAL   7'b1101111
+`define INST_TYPE_I_FENCE  7'b0001111
 
 // R type instruction
 `define INST_ADD_SUB  3'b000
