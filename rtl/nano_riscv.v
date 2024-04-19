@@ -52,6 +52,7 @@ module nano_riscv(
     wire x_jal     =   opcode ==   `INST_TYPE_UJ_JAL;
     wire x_jalr    =   opcode ==   `INST_TYPE_I_JALR;
     wire x_load    =   opcode ==   `INST_TYPE_I_L;
+    wire x_store   =   opcode ==   `INST_TYPE_S;
 
     wire [6:0] opcode = inst[6:0];
     wire [4:0] rd = (x_r || x_lui || x_auipc || x_jal || x_jalr || x_load) ?
@@ -68,11 +69,13 @@ module nano_riscv(
     wire signed [31:0] sn2 = n2;
     wire [31:0] nd;
 
+    wire [31:0] imm_s = {{21{inst[31]}}, inst[30:25], inst[11:7]};
     wire [31:0] imm_sb = {{20{inst[31]}}, inst[7], inst[30:25],
                           inst[11:8], 1'b0}; // SB type
     wire [31:0] imm_lu20 = {inst[31:12], 12'b0}; // LUI
     wire [31:0] imm_jal = {{12{inst[31]}}, inst[19:12], inst[20],
                             inst[30:21]};
+
 
     // Stage 3. Ex, Execute
     // R & I compute instruction
@@ -101,7 +104,34 @@ module nano_riscv(
 
 
     // Stage 4. MEM, Data Memory Access
-    wire [31:0] addr = reg_file[rs1] + imm_i;
+    wire [31:0] read_addr = reg_file[rs1] + imm_i;
+    wire [31:0] write_addr = reg_file[rs1] + imm_s;
+    wire [31:0] write_val =  // H/W are 16 bits and 32 bits aligned
+        funct3 == `INST_SB ? (write_addr[1:0] == 3 ? {n2[7:0], 24'h0} :
+                              write_addr[1:0] == 2 ? {8'h0, n2[7:0], 16'h0} :
+                              write_addr[1:0] == 1 ? {16'h0, n2[7:0], 8'h0} :
+                                                     {24'h0, n2[7:0]}) :
+        funct3 == `INST_SH ? (write_addr[1:0] == 2 ? {n2[15:0], 16'h0} :
+                                                     {16'h0, n2[15:0]}) :
+                                                     n2;
+    wire [3:0] write_bits =  // H/W are 16 bits and 32 bits aligned
+        funct3 == `INST_SB ? (write_addr[1:0] == 3 ? 4'b1000 :
+                              write_addr[1:0] == 2 ? 4'b0100 :
+                              write_addr[1:0] == 1 ? 4'b0010 :
+                                                     4'b0001) :
+        funct3 == `INST_SH ? (write_addr[1:0] == 2 ? 4'b1100 :
+                                                     4'b0011) :
+        4'b1111;
+    wire [31:0] w_mem = {2'b0, write_addr[31:2]};
+
+    always @(posedge i_clk) begin
+        if (x_store) begin
+           if (write_bits[0]) mem_file[w_mem][7:0]   <= write_val[7:0];
+           if (write_bits[1]) mem_file[w_mem][15:8]  <= write_val[15:8];
+           if (write_bits[2]) mem_file[w_mem][23:16] <= write_val[23:16];
+           if (write_bits[3]) mem_file[w_mem][31:24] <= write_val[31:24];
+        end
+    end
 
 
     // Stage 5. WB, Write Back
