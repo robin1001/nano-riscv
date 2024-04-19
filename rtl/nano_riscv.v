@@ -104,49 +104,49 @@ module nano_riscv(
 
 
     // Stage 4. MEM, Data Memory Access
-    wire [31:0] read_addr = reg_file[rs1] + imm_i;
-    wire [31:0] r_mem = {2'b0, read_addr[31:2]};
-    wire [31:0] read_v = mem_file[r_mem];
-    wire [31:0] read_val =  // H/W are 16 bits and 32 bits aligned
-        funct3 == `INST_LB ? (read_addr[1:0] == 3 ? {read_v[31], 24'h0, read_v[30:24]} :
-                              read_addr[1:0] == 2 ? {read_v[23], 24'h0, read_v[22:16]} :
-                              read_addr[1:0] == 1 ? {read_v[15], 24'h0, read_v[14:8]} :
-                                                    {read_v[7], 24'h0, read_v[6:0]}) :
-        funct3 == `INST_LH ? (read_addr[1:0] == 2 ? {read_v[31], 16'h0, read_v[30:16]} :
-                                                    {read_v[15], 16'h0, read_v[14:0]}) :
-        funct3 == `INST_LBU ? (read_addr[1:0] == 3 ? {24'h0, read_v[31:24]} :
-                               read_addr[1:0] == 2 ? {24'h0, read_v[23:16]} :
-                               read_addr[1:0] == 1 ? {24'h0, read_v[15:8]} :
-                                                     {24'h0, read_v[7:0]}) :
-        funct3 == `INST_LHU ? (read_addr[1:0] == 2 ? {16'h0, read_v[31:16]} :
-                                                     {16'h0, read_v[15:0]}) :
-        read_v;
+    wire [31:0] r_addr = reg_file[rs1] + imm_i;
+    wire [31:0] r_mem = {2'b0, r_addr[31:2]};
+    wire [31:0] rv = mem_file[r_mem];
+    wire [31:0] r_val =  // H/W are 16 bits and 32 bits aligned
+        funct3 == `INST_LB ? (r_addr[1:0] == 3 ? {rv[31], 24'h0, rv[30:24]} :
+                              r_addr[1:0] == 2 ? {rv[23], 24'h0, rv[22:16]} :
+                              r_addr[1:0] == 1 ? {rv[15], 24'h0, rv[14:8]} :
+                                                 {rv[7], 24'h0, rv[6:0]}) :
+        funct3 == `INST_LH ? (r_addr[1:0] == 2 ? {rv[31], 16'h0, rv[30:16]} :
+                                                 {rv[15], 16'h0, rv[14:0]}) :
+        funct3 == `INST_LBU ? (r_addr[1:0] == 3 ? {24'h0, rv[31:24]} :
+                               r_addr[1:0] == 2 ? {24'h0, rv[23:16]} :
+                               r_addr[1:0] == 1 ? {24'h0, rv[15:8]} :
+                                                  {24'h0, rv[7:0]}) :
+        funct3 == `INST_LHU ? (r_addr[1:0] == 2 ? {16'h0, rv[31:16]} :
+                                                  {16'h0, rv[15:0]}) :
+        rv;
 
-    wire [31:0] write_addr = reg_file[rs1] + imm_s;
-    wire [31:0] write_val =  // H/W are 16 bits and 32 bits aligned
-        funct3 == `INST_SB ? (write_addr[1:0] == 3 ? {n2[7:0], 24'h0} :
-                              write_addr[1:0] == 2 ? {8'h0, n2[7:0], 16'h0} :
-                              write_addr[1:0] == 1 ? {16'h0, n2[7:0], 8'h0} :
-                                                     {24'h0, n2[7:0]}) :
-        funct3 == `INST_SH ? (write_addr[1:0] == 2 ? {n2[15:0], 16'h0} :
-                                                     {16'h0, n2[15:0]}) :
-                                                     n2;
-    wire [3:0] write_bits =  // H/W are 16 bits and 32 bits aligned
-        funct3 == `INST_SB ? (write_addr[1:0] == 3 ? 4'b1000 :
-                              write_addr[1:0] == 2 ? 4'b0100 :
-                              write_addr[1:0] == 1 ? 4'b0010 :
-                                                     4'b0001) :
-        funct3 == `INST_SH ? (write_addr[1:0] == 2 ? 4'b1100 :
-                                                     4'b0011) :
+    wire [31:0] w_addr = reg_file[rs1] + imm_s;
+    wire [31:0] w_val =  // H/W are 16 bits and 32 bits aligned
+        funct3 == `INST_SB ? (w_addr[1:0] == 3 ? {n2[7:0], 24'h0} :
+                              w_addr[1:0] == 2 ? {8'h0, n2[7:0], 16'h0} :
+                              w_addr[1:0] == 1 ? {16'h0, n2[7:0], 8'h0} :
+                                                 {24'h0, n2[7:0]}) :
+        funct3 == `INST_SH ? (w_addr[1:0] == 2 ? {n2[15:0], 16'h0} :
+                                                 {16'h0, n2[15:0]}) :
+        n2;
+    wire [3:0] w_bits =  // H/W are 16 bits and 32 bits aligned
+        funct3 == `INST_SB ? (w_addr[1:0] == 3 ? 4'b1000 :
+                              w_addr[1:0] == 2 ? 4'b0100 :
+                              w_addr[1:0] == 1 ? 4'b0010 :
+                                                 4'b0001) :
+        funct3 == `INST_SH ? (w_addr[1:0] == 2 ? 4'b1100 :
+                                                 4'b0011) :
         4'b1111;
-    wire [31:0] w_mem = {2'b0, write_addr[31:2]};
+    wire [31:0] w_mem = {2'b0, w_addr[31:2]};
 
     always @(posedge i_clk) begin
         if (x_store) begin
-           if (write_bits[0]) mem_file[w_mem][7:0]   <= write_val[7:0];
-           if (write_bits[1]) mem_file[w_mem][15:8]  <= write_val[15:8];
-           if (write_bits[2]) mem_file[w_mem][23:16] <= write_val[23:16];
-           if (write_bits[3]) mem_file[w_mem][31:24] <= write_val[31:24];
+           if (w_bits[0]) mem_file[w_mem][7:0]   <= w_val[7:0];
+           if (w_bits[1]) mem_file[w_mem][15:8]  <= w_val[15:8];
+           if (w_bits[2]) mem_file[w_mem][23:16] <= w_val[23:16];
+           if (w_bits[3]) mem_file[w_mem][31:24] <= w_val[31:24];
         end
     end
 
@@ -162,7 +162,7 @@ module nano_riscv(
                          x_auipc   ?   pc_aui     :
                          x_jal     ?   pc + 4   :
                          x_jalr    ?   pc + 4   :
-                         x_load    ?   read_val :
+                         x_load    ?   r_val :
                          32'b0;
     always @(posedge i_clk) begin
         if (i_rst) begin
